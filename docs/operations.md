@@ -223,5 +223,5 @@ unvalidated candidates.
 - **Scope:** recorded values only. The renderer computes gains, validates the specification and writes a figure; it measures nothing.
 - **Output:** an SVG figure, plus a Markdown table with the same values when `--markdown` is given. `report` and `run` also write `summary-chart.svg` into the run directory and inline it in the HTML report.
 - **Side effects:** writes the requested files; nothing is executed and no network or GPU is touched.
-- **Failure behavior:** exit code 2 with the offending field name when the specification is incomplete, ambiguous or inconsistent; a report without a paired measurement states why it has no figure.
+- **Failure behavior:** exit code 2 with the offending field name when the specification is incomplete, ambiguous or inconsistent; a report without a paired measurement, or with unqualified required trial checks, states why it has no gain figure.
 - **Example:** [campaign summary chart](campaign-summary-chart.md)

@@ -56,7 +56,9 @@ def _summary_figure(run_dir: Path, evaluation: dict) -> str:
 
     A report is generated at the end of every experiment, so this is where a
     finished run gets its figure without a separate command. A run with no
-    paired measurement gets a sentence rather than a misleading empty chart.
+    paired measurement, or whose required trial checks are unqualified, gets a
+    sentence rather than a chart that reads as an accepted gain. Retained
+    medians stay in the evaluation section.
 
     A campaign that has accumulated several steps can commit a chain
     specification as ``summary-chart.json`` beside the run; that spec wins,

@@ -80,6 +80,8 @@ def evaluate(
     all_metrics = len(baseline) == len(candidate) == spec.repetitions and all(
         t.get("status") == "completed" and t.get("metric") is not None for t in baseline + candidate
     )
+    # Required checks gate the published gain. Retained medians stay in the
+    # summary for diagnosis; they are not a ratio the report may plot as a gain.
     if all_metrics and trials_qualified:
         improvement = (after["median"] - before["median"]) / before["median"] * 100
         if spec.direction == "minimize":
@@ -100,6 +102,7 @@ def evaluate(
         "verdict": verdict.value,
         "reasons": failed + incomplete,
         "required_trial_checks": list(spec.required_trial_checks),
+        "trials_qualified": trials_qualified,
         "metric_key": spec.metric_key,
         "metric_unit": spec.metric_unit,
         "comparison_scope": spec.comparison_scope,

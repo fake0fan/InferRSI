@@ -9,6 +9,7 @@ import pytest
 
 from inferrsi.arguments import make_spec, parser
 from inferrsi.harness.evaluation import evaluate
+from inferrsi.harness.reporting import write_report
 from inferrsi.harness.runner import run_experiment
 from inferrsi.harness.scenarios.external import collect_trial_checks
 from inferrsi.runspec import RunSpec
@@ -28,6 +29,7 @@ def test_unqualified_trial_cannot_publish_gain(value, side):
     )
     assert result["verdict"] == "INCONCLUSIVE"
     assert result["improvement_pct"] is None
+    assert result["trials_qualified"] is False
     assert any(f"{side} trial 1: required check evidence.closed" in r for r in result["reasons"])
 
 
@@ -104,7 +106,13 @@ def test_cli_to_trial_evidence_and_verdict(tmp_path):
     )
     path = run_experiment(spec, {"backend": "cpu"})
     read = lambda relative: json.loads((path / relative).read_text())  # noqa: E731
-    assert read("evaluation.json")["verdict"] == "PASS"
+    passed = read("evaluation.json")
+    assert passed["verdict"] == "PASS"
+    assert passed["trials_qualified"] is True
+    qualified_report = (path / "report.html").read_text(encoding="utf-8")
+    qualified_svg = (path / "summary-chart.svg").read_text(encoding="utf-8")
+    assert "0.80\u00d7" in qualified_report
+    assert "0.80\u00d7" in qualified_svg
     assert read("run.lock.json")["required_trial_checks"] == list(spec.required_trial_checks)
     assert read("candidate/trial-001/execution.json")["trial_checks"] == {
         "evidence.closed": True,
@@ -115,6 +123,67 @@ def test_cli_to_trial_evidence_and_verdict(tmp_path):
     result = json.loads((path / "evaluation.json").read_text())
     assert result["verdict"] == "INCONCLUSIVE"
     assert result["improvement_pct"] is None
+    assert result["trials_qualified"] is False
+    report = (path / "report.html").read_text(encoding="utf-8")
+    assert "No gain figure" in report
+    assert "not an accepted gain" in report
+    assert "0.80\u00d7" not in report
+    assert "<svg" not in report
+    assert not (path / "summary-chart.svg").exists()
+
+
+@pytest.mark.parametrize(
+    "trial_checks",
+    [{"evidence.workers_closed": False}, {}],
+    ids=["false", "missing"],
+)
+def test_unqualified_report_does_not_plot_a_gain(tmp_path, trial_checks):
+    """A failed or missing check must not render a candidate/baseline gain ratio."""
+    spec = RunSpec(repo=".", repetitions=1, required_trial_checks=("evidence.workers_closed",))
+    baseline = [
+        {
+            "status": "completed",
+            "metric": 100,
+            "trial_checks": {"evidence.workers_closed": True},
+        }
+    ]
+    candidate = [{"status": "completed", "metric": 80, "trial_checks": trial_checks}]
+    result = evaluate(spec, baseline, candidate, {"status": "completed"}, {"verified": True})
+    assert result["verdict"] == "INCONCLUSIVE"
+    assert result["improvement_pct"] is None
+    assert result["trials_qualified"] is False
+    assert result["baseline"]["median"] == 100
+    assert result["candidate"]["median"] == 80
+    (tmp_path / "evaluation.json").write_text(json.dumps(result), encoding="utf-8")
+    report = write_report(tmp_path).read_text(encoding="utf-8")
+    assert "No gain figure" in report
+    assert "unqualified" in report
+    assert "not an accepted gain" in report
+    assert "0.80\u00d7" not in report
+    assert "<svg" not in report
+    assert not (tmp_path / "summary-chart.svg").exists()
+    # Raw medians remain in the escaped evaluation section for diagnosis.
+    assert "&quot;median&quot;: 100" in report
+    assert "&quot;median&quot;: 80" in report
+    assert "&quot;improvement_pct&quot;: null" in report
+    assert "&quot;trials_qualified&quot;: false" in report
+
+
+def test_qualified_report_plots_the_measured_ratio(tmp_path):
+    spec = RunSpec(repo=".", repetitions=1, required_trial_checks=("evidence.workers_closed",))
+    checks = {"evidence.workers_closed": True}
+    trials = [
+        [{"status": "completed", "metric": metric, "trial_checks": checks}] for metric in (100, 80)
+    ]
+    result = evaluate(spec, trials[0], trials[1], {"status": "completed"}, {"verified": True})
+    assert result["trials_qualified"] is True
+    assert result["improvement_pct"] == 20
+    (tmp_path / "evaluation.json").write_text(json.dumps(result), encoding="utf-8")
+    report = write_report(tmp_path).read_text(encoding="utf-8")
+    svg = (tmp_path / "summary-chart.svg").read_text(encoding="utf-8")
+    assert "0.80\u00d7" in report
+    assert "0.80\u00d7" in svg
+    assert "<svg" in report
 
 
 @pytest.mark.parametrize("keys", ["closed", ("",), ("a..b",), ("a", "a"), (1,), ([1],)])

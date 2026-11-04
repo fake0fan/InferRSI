@@ -905,9 +905,19 @@ def spec_from_evaluation(evaluation: dict, *, title: str | None = None) -> dict:
     A single run has one baseline and one candidate, so the figure shows the
     recorded pair as a two-point chain: the baseline at 1.00x and the measured
     candidate. Nothing is inferred beyond the evaluation's own numbers.
+
+    An unqualified comparison (``trials_qualified`` is false) has no accepted
+    gain. Retained medians stay in the evaluation record; this refuses to turn
+    them into a candidate/baseline ratio. Evaluations written before that field
+    existed still plot when both medians are present.
     """
     if not isinstance(evaluation, dict):
         raise SpecError("evaluation must be an object")
+    if evaluation.get("trials_qualified") is False:
+        raise SpecError(
+            "required trial checks are unqualified; retained medians are raw "
+            "measurements, not an accepted gain"
+        )
     before = evaluation.get("baseline") or {}
     after = evaluation.get("candidate") or {}
     baseline_value = before.get("median")

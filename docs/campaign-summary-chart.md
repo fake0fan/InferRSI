@@ -38,7 +38,11 @@ for the story of the accepted steps, the branch table for the full search.
 `inferrsi report` (and `run`, which calls it) renders
 `<run-dir>/summary-chart.svg` and inlines it into `report.html`. Nothing extra
 is needed for a single pairing: the figure shows the recorded baseline and
-candidate medians as a two-point chain.
+candidate medians as a two-point chain. That derived figure is withheld when
+required trial checks are unqualified (`evaluation.json` has
+`trials_qualified: false`). The report states that the retained medians are
+raw measurements, not an accepted gain. The medians themselves stay in the
+evaluation record.
 
 A campaign with several steps commits its own chain specification as
 `summary-chart.json` in the run directory. That specification wins over the
